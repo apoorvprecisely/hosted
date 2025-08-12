@@ -15,8 +15,8 @@ services:
        - WIREGUARD_PRIVATE_KEY=YPk/B8/jl9JQYlklKH5GUjJ+UB4ddbXFZ8P0uigvAEs=
     ports:
       - 8080:8080  # qBittorrent WebUI
-      - 6881:6881  # qBittorrent TCP
-      - 6881:6881/udp  # qBittorrent UDP
+      - 38133:38133  # qBittorrent TCP
+      - 38133:38133/udp  # qBittorrent UDP
       - 9696:9696
       - 8989:8989
       - 5055:5055
@@ -31,12 +31,12 @@ services:
       - PGID=1000
       - TZ=Etc/UTC
       - WEBUI_PORT=8080
-      - TORRENTING_PORT=6881
+      - TORRENTING_PORT=38133
     volumes:
-      - /home/apoorv/docker-data/qbittorrent/appdata:/config
-      - /mnt/561DA19B02F15670/Downloads:/downloads
-      - /mnt/561DA19B02F15670/Downloads/tv:/downloads/tv
-      - /mnt/561DA19B02F15670/Downloads/movies:/downloads/movies
+      - /home/apoorv/hosted/qbittorrent/appdata:/config
+      - /media/apoorv/561DA19B02F15670/Downloads:/downloads
+      - /media/apoorv/561DA19B02F15670/Downloads/tv:/downloads/tv
+      - /media/apoorv/561DA19B02F15670/Downloads/movies:/downloads/movies
     restart: unless-stopped
     depends_on:
       - gluetun
@@ -50,9 +50,9 @@ services:
       - PGID=1000
       - TZ=Etc/UTC
     volumes:
-      - /home/apoorv/docker-data/sonarr:/config
-      - /mnt/561DA19B02F15670/Downloads/tv:/tv
-      - /mnt/561DA19B02F15670/Downloads/downloads:/downloads
+      - /home/apoorv/hosted/sonarr:/config
+      - /media/apoorv/561DA19B02F15670/Downloads/tv:/downloads/tv
+      - /media/apoorv/561DA19B02F15670/Downloads/downloads:/downloads
     restart: unless-stopped
     depends_on:
       - gluetun
@@ -65,9 +65,9 @@ services:
       - PGID=1000
       - TZ=Etc/UTC
     volumes:
-      - /home/apoorv/docker-data/radarr:/config
-      - /mnt/561DA19B02F15670/Downloads/movies:/movies
-      - /mnt/561DA19B02F15670/Downloads/downloads:/downloads
+      - /home/apoorv/hosted/radarr:/config
+      - /media/apoorv/561DA19B02F15670/Downloads/movies:/downloads/movies
+      - /media/apoorv/561DA19B02F15670/Downloads/downloads:/downloads
     restart: unless-stopped
     depends_on:
       - gluetun
@@ -82,7 +82,7 @@ services:
       - PUID=1000
       - PGID=1000
     volumes:
-      - /home/apoorv/docker-data/jellyseerr/config:/app/config
+      - /home/apoorv/hosted/jellyseerr/config:/app/config
     restart: unless-stopped
     depends_on:
       - gluetun
@@ -94,11 +94,11 @@ services:
       - PUID=1000
       - PGID=1000
       - TZ=Etc/UTC
-      - JELLYFIN_PublishedServerUrl=http://192.168.0.100:8096
+      - JELLYFIN_PublishedServerUrl=http://192.168.1.14:8096
     volumes:
-      - /home/apoorv/docker-data/jellyfin/config:/config
-      - /mnt/561DA19B02F15670/Downloads/tv:/data/tvshows
-      - /mnt/561DA19B02F15670/Downloads/movies:/data/movies
+      - /home/apoorv/hosted/jellyfin/config:/config
+      - /media/apoorv/561DA19B02F15670/Downloads/tv:/downloads/tv
+      - /media/apoorv/561DA19B02F15670/Downloads/movies:/downloads/movies
     ports:
       - 8096:8096
       - 8920:8920
@@ -113,8 +113,8 @@ services:
       - PGID=1000
       - TZ=Etc/UTC
     volumes:
-      - /home/apoorv/docker-data/prowlarr/config:/config
-      - /home/apoorv/docker-data/prowlarr/Custom:/config/Definitions/Custom
+      - /home/apoorv/hosted/prowlarr/config:/config
+      - /home/apoorv/hosted/prowlarr/Custom:/config/Definitions/Custom
     restart: unless-stopped
     depends_on:
       - gluetun
