@@ -1,4 +1,7 @@
 ---
+volumes:
+  gluetun-tmp:
+
 services:
   gluetun:
     image: qmcgaw/gluetun
@@ -13,16 +16,24 @@ services:
        - PORT_FORWARDING=on
        - PORT_FORWARDING_PROVIDER=protonvpn
        - WIREGUARD_PRIVATE_KEY=YPk/B8/jl9JQYlklKH5GUjJ+UB4ddbXFZ8P0uigvAEs=
+    volumes:
+      - gluetun-tmp:/tmp/gluetun  # Shared temp directory for port forwarding
     ports:
       - 8080:8080  # qBittorrent WebUI
-      - 65265:65265  # qBittorrent TCP
-      - 65265:65265/udp  # qBittorrent UDP
+      - 65265:65265  # qBittorrent TCP (will be updated dynamically)
+      - 65265:65265/udp  # qBittorrent UDP (will be updated dynamically)
       - 9696:9696
       - 8989:8989
       - 5055:5055
       - 7878:7878
-      - 8888:8888  # Gluetun HTTP Proxy (ADD THIS)
-      - 8000:8000  # Gluetun HTTP Server (ADD THIS)
+      - 8888:8888  # Gluetun HTTP Proxy
+      - 8000:8000  # Gluetun HTTP Server
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/gluetun/forwarded_port"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
@@ -31,7 +42,7 @@ services:
       - PGID=1000
       - TZ=Etc/UTC
       - WEBUI_PORT=8080
-      - TORRENTING_PORT=65265
+      # Removed TORRENTING_PORT - will be set dynamically
     volumes:
       - /home/apoorv/hosted/qbittorrent/appdata:/config
       - /media/apoorv/561DA19B02F15670/Downloads:/downloads
@@ -42,6 +53,24 @@ services:
       - gluetun
     network_mode: "service:gluetun"
 
+  # Service to sync Gluetun's forwarded port with qBittorrent
+  port-manager:
+    image: patrickaclark/gluetun-qbittorrent-port-manager:latest
+    container_name: gluetun-qbittorrent-port-manager
+    environment:
+      - QBITTORRENT_SERVER=localhost
+      - QBITTORRENT_PORT=8080
+      - QBITTORRENT_USER=apoorv
+      - QBITTORRENT_PASS=clockwork
+      - PORT_FORWARDED=/tmp/gluetun/forwarded_port
+    volumes:
+      - gluetun-tmp:/tmp/gluetun:ro  # Mount Gluetun's temp directory
+    depends_on:
+      - gluetun
+      - qbittorrent
+    network_mode: "service:gluetun"
+    restart: unless-stopped
+
   sonarr:
     image: lscr.io/linuxserver/sonarr:latest
     container_name: sonarr
@@ -51,8 +80,8 @@ services:
       - TZ=Etc/UTC
     volumes:
       - /home/apoorv/hosted/sonarr:/config
-      - /media/apoorv/561DA19B02F15670/Downloads/tv:/downloads/tv
-      - /media/apoorv/561DA19B02F15670/Downloads/downloads:/downloads
+      - /media/apoorv/561DA19B02F15670/Downloads:/downloads  # Match qBittorrent's main download path
+      - /media/apoorv/561DA19B02F15670/Downloads/tv:/tv  # Final TV library location
     restart: unless-stopped
     depends_on:
       - gluetun
@@ -66,8 +95,8 @@ services:
       - TZ=Etc/UTC
     volumes:
       - /home/apoorv/hosted/radarr:/config
-      - /media/apoorv/561DA19B02F15670/Downloads/movies:/downloads/movies
-      - /media/apoorv/561DA19B02F15670/Downloads/downloads:/downloads
+      - /media/apoorv/561DA19B02F15670/Downloads:/downloads  # Match qBittorrent's main download path
+      - /media/apoorv/561DA19B02F15670/Downloads/movies:/movies  # Final movie library location
     restart: unless-stopped
     depends_on:
       - gluetun
@@ -97,8 +126,8 @@ services:
       - JELLYFIN_PublishedServerUrl=http://192.168.1.14:8096
     volumes:
       - /home/apoorv/hosted/jellyfin/config:/config
-      - /media/apoorv/561DA19B02F15670/Downloads/tv:/downloads/tv
-      - /media/apoorv/561DA19B02F15670/Downloads/movies:/downloads/movies
+      - /media/apoorv/561DA19B02F15670/Downloads/tv:/media/tv  # TV library for Jellyfin
+      - /media/apoorv/561DA19B02F15670/Downloads/movies:/media/movies  # Movie library for Jellyfin
     ports:
       - 8096:8096
       - 8920:8920
