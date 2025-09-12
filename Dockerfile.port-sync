@@ -1,0 +1,29 @@
+FROM alpine:latest
+
+# Install required packages
+RUN apk add --no-cache bash curl grep
+
+# Create a non-root user
+RUN addgroup -g 1000 portsync && \
+    adduser -D -u 1000 -G portsync portsync
+
+# Copy the script
+COPY port-sync.sh /usr/local/bin/port-sync.sh
+
+# Make script executable
+RUN chmod +x /usr/local/bin/port-sync.sh
+
+# Switch to non-root user
+USER portsync
+
+# Set default environment variables
+ENV QBITTORRENT_HOST=localhost
+ENV QBITTORRENT_PORT=8080
+ENV QBITTORRENT_USER=admin
+ENV QBITTORRENT_PASS=adminpass
+ENV PORT_FILE=/tmp/gluetun/forwarded_port
+ENV CHECK_INTERVAL=30
+
+# Run the script
+CMD ["/usr/local/bin/port-sync.sh"]
+

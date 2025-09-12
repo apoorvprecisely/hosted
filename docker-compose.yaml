@@ -46,23 +46,24 @@ services:
     volumes:
       - /home/apoorv/hosted/qbittorrent/appdata:/config
       - /media/apoorv/561DA19B02F15670/Downloads:/downloads
-      - /media/apoorv/561DA19B02F15670/Downloads/tv:/downloads/tv
-      - /media/apoorv/561DA19B02F15670/Downloads/movies:/downloads/movies
     restart: unless-stopped
     depends_on:
       - gluetun
     network_mode: "service:gluetun"
 
   # Service to sync Gluetun's forwarded port with qBittorrent
-  port-manager:
-    image: patrickaclark/gluetun-qbittorrent-port-manager:latest
-    container_name: gluetun-qbittorrent-port-manager
+  port-sync:
+    build:
+      context: .
+      dockerfile: Dockerfile.port-sync
+    container_name: gluetun-qbittorrent-port-sync
     environment:
-      - QBITTORRENT_SERVER=localhost
+      - QBITTORRENT_HOST=localhost
       - QBITTORRENT_PORT=8080
       - QBITTORRENT_USER=apoorv
       - QBITTORRENT_PASS=clockwork
-      - PORT_FORWARDED=/tmp/gluetun/forwarded_port
+      - PORT_FILE=/tmp/gluetun/forwarded_port
+      - CHECK_INTERVAL=30
     volumes:
       - gluetun-tmp:/tmp/gluetun:ro  # Mount Gluetun's temp directory
     depends_on:
@@ -80,8 +81,7 @@ services:
       - TZ=Etc/UTC
     volumes:
       - /home/apoorv/hosted/sonarr:/config
-      - /media/apoorv/561DA19B02F15670/Downloads:/downloads  # Match qBittorrent's main download path
-      - /media/apoorv/561DA19B02F15670/Downloads/tv:/tv  # Final TV library location
+      - /media/apoorv/561DA19B02F15670/Downloads:/downloads
     restart: unless-stopped
     depends_on:
       - gluetun
@@ -95,8 +95,7 @@ services:
       - TZ=Etc/UTC
     volumes:
       - /home/apoorv/hosted/radarr:/config
-      - /media/apoorv/561DA19B02F15670/Downloads:/downloads  # Match qBittorrent's main download path
-      - /media/apoorv/561DA19B02F15670/Downloads/movies:/movies  # Final movie library location
+      - /media/apoorv/561DA19B02F15670/Downloads:/downloads
     restart: unless-stopped
     depends_on:
       - gluetun
@@ -126,8 +125,8 @@ services:
       - JELLYFIN_PublishedServerUrl=http://192.168.1.14:8096
     volumes:
       - /home/apoorv/hosted/jellyfin/config:/config
-      - /media/apoorv/561DA19B02F15670/Downloads/tv:/media/tv  # TV library for Jellyfin
-      - /media/apoorv/561DA19B02F15670/Downloads/movies:/media/movies  # Movie library for Jellyfin
+      - /media/apoorv/561DA19B02F15670/Downloads:/downloads
+      - /media/apoorv/561DA19B02F15670/letterboxd:/letterboxd
     ports:
       - 8096:8096
       - 8920:8920
@@ -148,3 +147,20 @@ services:
     depends_on:
       - gluetun
     network_mode: "service:gluetun"
+
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    container_name: filebrowser
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /home/apoorv/hosted/filebrowser:/config
+      - /media/apoorv/561DA19B02F15670/Downloads:/srv/downloads
+      - /media/apoorv/561DA19B02F15670/letterboxd:/srv/letterboxd
+      - /home/apoorv/hosted:/srv/config
+    ports:
+      - 8001:80
+    restart: unless-stopped
+    command: --noauth
