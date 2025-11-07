@@ -1,0 +1,66 @@
+FROM ubuntu:24.04 AS build
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update -qq && \
+    apt-get install -y -qq git build-essential cmake python3 ninja-build pkg-config libcurl4-openssl-dev \
+      ocl-icd-opencl-dev clinfo mesa-opencl-icd libclblast-dev libvulkan-dev glslang-tools glslc \
+      curl ca-certificates && \
+    update-ca-certificates
+
+WORKDIR /opt
+RUN git clone --depth 1 https://github.com/ggerganov/llama.cpp.git
+WORKDIR /opt/llama.cpp
+RUN cmake -B build -DGGML_VULKAN=ON -DGGML_OPENCL=OFF -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build build -j && \
+    strip build/bin/llama-server
+
+FROM ubuntu:24.04
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update -qq && \
+    apt-get install -y -qq ocl-icd-libopencl1 clinfo mesa-opencl-icd libclblast-dev libgomp1 libvulkan1 curl ca-certificates && \
+    update-ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /opt/llama.cpp/build/bin/llama-server /usr/local/bin/llama-server
+COPY --from=build /opt/llama.cpp/build/bin/*.so /usr/local/lib/
+ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
+
+# Model dir
+RUN mkdir -p /models
+VOLUME ["/models"]
+
+# Defaults can be overridden at runtime
+ENV LLAMA_MODEL_URL="https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/TinyLlama-1.1B-Chat-v1.0.Q2_K.gguf" \
+    LLAMA_MODEL_PATH="/models/TinyLlama-1.1B-Chat-v1.0.Q2_K.gguf" \
+    GGML_OPENCL_PLATFORM=0 \
+    GGML_OPENCL_DEVICE=0 \
+    LLAMA_GPU_LAYERS=20 \
+    RUSTICL_ENABLE=radeonsi
+
+EXPOSE 8080
+
+COPY <<'EOS' /entry.sh
+#!/usr/bin/env bash
+set -euo pipefail
+need_dl=0
+if [ ! -f "$LLAMA_MODEL_PATH" ]; then
+  need_dl=1
+else
+  size=$(stat -c%s "$LLAMA_MODEL_PATH" || echo 0)
+  # re-download if file is suspiciously small (<300MB)
+  if [ "$size" -lt 300000000 ]; then
+    echo "Existing model is too small ($size bytes). Re-downloading..."
+    need_dl=1
+  fi
+fi
+if [ "$need_dl" -eq 1 ]; then
+  echo "Downloading model to $LLAMA_MODEL_PATH"
+  mkdir -p "$(dirname "$LLAMA_MODEL_PATH")"
+  curl -fL --retry 5 -C - "$LLAMA_MODEL_URL" -o "$LLAMA_MODEL_PATH"
+fi
+exec /usr/local/bin/llama-server --host 0.0.0.0 --port 8080 -m "$LLAMA_MODEL_PATH" -ngl "$LLAMA_GPU_LAYERS"
+EOS
+RUN chmod +x /entry.sh
+ENTRYPOINT ["/entry.sh"]
+
+

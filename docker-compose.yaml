@@ -1,38 +1,37 @@
 ---
 volumes:
   gluetun-tmp:
+  ollama-data:
+  open-webui-data:
+  llama-models:
 
 services:
   gluetun:
     image: qmcgaw/gluetun
+    container_name: gluetun
     cap_add:
       - NET_ADMIN
     devices:
       - /dev/net/tun:/dev/net/tun
     environment:
-       - VPN_SERVICE_PROVIDER=protonvpn  # Use native ProtonVPN support
-       - VPN_TYPE=wireguard
-       - SERVER_COUNTRIES=Singapore
-       - PORT_FORWARDING=on
-       - PORT_FORWARDING_PROVIDER=protonvpn
-       - WIREGUARD_PRIVATE_KEY=YPk/B8/jl9JQYlklKH5GUjJ+UB4ddbXFZ8P0uigvAEs=
+      - VPN_SERVICE_PROVIDER=protonvpn
+      - OPENVPN_USER=wc1BWbyhqcUe1ICd+pmp
+      - OPENVPN_PASSWORD=WqoGmKv28VVwwFNZyjoGydwzqo2dnSv4
+      - SERVER_COUNTRIES=Singapore
+      - FREE_ONLY=off
+      - VPN_PORT_FORWARDING=on
+      - VPN_PORT_FORWARDING_PROVIDER=protonvpn
     volumes:
       - gluetun-tmp:/tmp/gluetun  # Shared temp directory for port forwarding
     ports:
-      - 8080:8080  # qBittorrent WebUI
-      - 65265:65265  # qBittorrent TCP (will be updated dynamically)
-      - 65265:65265/udp  # qBittorrent UDP (will be updated dynamically)
+      - 8080:8080
+      - 55705:55705
+      - 55705:55705/udp
       - 9696:9696
       - 8989:8989
       - 5055:5055
       - 7878:7878
-      - 8888:8888  # Gluetun HTTP Proxy
-      - 8000:8000  # Gluetun HTTP Server
-    healthcheck:
-      test: ["CMD", "test", "-f", "/tmp/gluetun/forwarded_port"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    restart: unless-stopped
 
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
@@ -42,7 +41,6 @@ services:
       - PGID=1000
       - TZ=Etc/UTC
       - WEBUI_PORT=8080
-      # Removed TORRENTING_PORT - will be set dynamically
     volumes:
       - /home/apoorv/hosted/qbittorrent/appdata:/config
       - /media/apoorv/561DA19B02F15670/Downloads:/downloads
@@ -86,6 +84,7 @@ services:
     depends_on:
       - gluetun
     network_mode: "service:gluetun"
+
   radarr:
     image: lscr.io/linuxserver/radarr:latest
     container_name: radarr
@@ -96,21 +95,6 @@ services:
     volumes:
       - /home/apoorv/hosted/radarr:/config
       - /media/apoorv/561DA19B02F15670/Downloads:/downloads
-    restart: unless-stopped
-    depends_on:
-      - gluetun
-    network_mode: "service:gluetun"
-
-  jellyseerr:
-    image: fallenbagel/jellyseerr:latest
-    container_name: jellyseerr
-    environment:
-      - LOG_LEVEL=debug
-      - TZ=Asia/Tashkent
-      - PUID=1000
-      - PGID=1000
-    volumes:
-      - /home/apoorv/hosted/jellyseerr/config:/app/config
     restart: unless-stopped
     depends_on:
       - gluetun
@@ -164,3 +148,88 @@ services:
       - 8001:80
     restart: unless-stopped
     command: --noauth
+
+  dockerproxy:
+    image: ghcr.io/tecnativa/docker-socket-proxy:latest
+    container_name: dockerproxy
+    environment:
+      - CONTAINERS=1
+      - POST=0
+    ports:
+      - 127.0.0.1:2375:2375
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - HOMEPAGE_ALLOWED_HOSTS=192.168.1.14:3000,100.118.160.128:3000,localhost:3000
+      - HOMEPAGE_VAR_HOST=192.168.1.14
+      - HOMEPAGE_VAR_SONARR_KEY=00ac047b135443c38ae58bc39d46750d
+      - HOMEPAGE_VAR_RADARR_KEY=14aa18947c5d4219ba8973d3d0f8a3bb
+      - HOMEPAGE_VAR_PROWLARR_KEY=6de53eb56bb54e199a3b269425ce9a0a
+      - HOMEPAGE_VAR_JELLYFIN_KEY=60ea486eb0aa4c7a918dc558aac80ca7
+      - HOMEPAGE_VAR_QBITTORRENT_USERNAME=apoorv
+      - HOMEPAGE_VAR_QBITTORRENT_PASSWORD=adminadmin
+    volumes:
+      - /home/apoorv/hosted/homepage:/app/config
+    ports:
+      - 3000:3000
+    restart: unless-stopped
+    depends_on:
+      - dockerproxy
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - 11434:11434
+    volumes:
+      - ollama-data:/root/.ollama
+    devices:
+      - /dev/dri
+    environment:
+      - OLLAMA_LLM_LIBRARY=vulkan
+      - GGML_VK_VISIBLE_DEVICES=0
+      - OLLAMA_NUM_GPU=1
+      - OLLAMA_NEW_ENGINE=true
+    restart: unless-stopped
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OPENAI_API_BASE_URL=http://llamacpp:8080/v1
+      - OPENAI_API_KEY=sk-local
+      - WEBUI_AUTH=false
+    ports:
+      - 8090:8080
+    volumes:
+      - open-webui-data:/app/backend/data
+    depends_on:
+      - ollama
+      - llamacpp
+    restart: unless-stopped
+
+  llamacpp:
+    build:
+      context: .
+      dockerfile: Dockerfile.llamacpp
+    container_name: llamacpp
+    devices:
+      - /dev/dri
+    environment:
+      - GGML_VK_VISIBLE_DEVICES=0
+      - LLAMA_GPU_LAYERS=10
+      - LLAMA_MODEL_URL=https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.2-GGUF/resolve/main/mistral-7b-instruct-v0.2.Q4_K_M.gguf
+      - LLAMA_MODEL_PATH=/models/mistral-7b-instruct-v0.2.Q4_K_M.gguf
+    volumes:
+      - llama-models:/models
+    ports:
+      - 8003:8080
+    restart: unless-stopped
