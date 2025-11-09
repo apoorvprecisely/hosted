@@ -1,104 +1,73 @@
 ---
 volumes:
-  gluetun-tmp:
   ollama-data:
   open-webui-data:
   llama-models:
 
 services:
-  gluetun:
-    image: qmcgaw/gluetun
-    container_name: gluetun
+  transmission-openvpn:
+    image: haugene/transmission-openvpn:latest
+    container_name: transmission-openvpn
+    network_mode: host
     cap_add:
       - NET_ADMIN
     devices:
-      - /dev/net/tun:/dev/net/tun
+      - /dev/net/tun
     environment:
-      - VPN_SERVICE_PROVIDER=protonvpn
-      - OPENVPN_USER=wc1BWbyhqcUe1ICd+pmp
+      - OPENVPN_PROVIDER=PROTONVPN
+      - OPENVPN_USERNAME=wc1BWbyhqcUe1ICd+pmp
       - OPENVPN_PASSWORD=WqoGmKv28VVwwFNZyjoGydwzqo2dnSv4
-      - SERVER_COUNTRIES=Singapore
-      - FREE_ONLY=off
-      - VPN_PORT_FORWARDING=on
-      - VPN_PORT_FORWARDING_PROVIDER=protonvpn
+      - OPENVPN_CONFIG=sg.protonvpn.tcp
+      - LOCAL_NETWORK=192.168.1.0/24,100.64.0.0/10
+      - TRANSMISSION_WEB_UI=flood
+      - PUID=1000
+      - PGID=1000
     volumes:
-      - gluetun-tmp:/tmp/gluetun  # Shared temp directory for port forwarding
-    ports:
-      - 8080:8080
-      - 55705:55705
-      - 55705:55705/udp
-      - 9696:9696
-      - 8989:8989
-      - 5055:5055
-      - 7878:7878
+      - /home/apoorv/hosted/transmission:/data
+      - /mnt/1BB69A1109DD1CCD/Downloads:/downloads
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
 
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
     container_name: qbittorrent
+    network_mode: host
     environment:
       - PUID=1000
       - PGID=1000
       - TZ=Etc/UTC
       - WEBUI_PORT=8080
+      - DOCKER_MODS=ghcr.io/gabe565/linuxserver-mod-vuetorrent
     volumes:
       - /home/apoorv/hosted/qbittorrent/appdata:/config
-      - /media/apoorv/561DA19B02F15670/Downloads:/downloads
-    restart: unless-stopped
+      - /mnt/1BB69A1109DD1CCD/Downloads:/downloads
     depends_on:
-      - gluetun
-    network_mode: "service:gluetun"
+      - transmission-openvpn
+    restart: unless-stopped
 
-  # Service to sync Gluetun's forwarded port with qBittorrent
   port-sync:
     build:
       context: .
       dockerfile: Dockerfile.port-sync
-    container_name: gluetun-qbittorrent-port-sync
+    container_name: protonvpn-qbittorrent-port-sync
+    network_mode: host
     environment:
       - QBITTORRENT_HOST=localhost
       - QBITTORRENT_PORT=8080
-      - QBITTORRENT_USER=apoorv
-      - QBITTORRENT_PASS=clockwork
-      - PORT_FILE=/tmp/gluetun/forwarded_port
-      - CHECK_INTERVAL=30
+      - QBITTORRENT_USER=admin
+      - QBITTORRENT_PASS=adminadmin
+      - CHECK_INTERVAL=60
     volumes:
-      - gluetun-tmp:/tmp/gluetun:ro  # Mount Gluetun's temp directory
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
-      - gluetun
+      - transmission-openvpn
       - qbittorrent
-    network_mode: "service:gluetun"
     restart: unless-stopped
 
-  sonarr:
-    image: lscr.io/linuxserver/sonarr:latest
-    container_name: sonarr
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-    volumes:
-      - /home/apoorv/hosted/sonarr:/config
-      - /media/apoorv/561DA19B02F15670/Downloads:/downloads
-    restart: unless-stopped
-    depends_on:
-      - gluetun
-    network_mode: "service:gluetun"
-
-  radarr:
-    image: lscr.io/linuxserver/radarr:latest
-    container_name: radarr
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-    volumes:
-      - /home/apoorv/hosted/radarr:/config
-      - /media/apoorv/561DA19B02F15670/Downloads:/downloads
-    restart: unless-stopped
-    depends_on:
-      - gluetun
-    network_mode: "service:gluetun"
+ 
   jellyfin:
     image: lscr.io/linuxserver/jellyfin:latest
     container_name: jellyfin
@@ -109,8 +78,8 @@ services:
       - JELLYFIN_PublishedServerUrl=http://192.168.1.14:8096
     volumes:
       - /home/apoorv/hosted/jellyfin/config:/config
-      - /media/apoorv/561DA19B02F15670/Downloads:/downloads
-      - /media/apoorv/561DA19B02F15670/letterboxd:/letterboxd
+      - /mnt/1BB69A1109DD1CCD/Downloads:/downloads
+      - /mnt/1BB69A1109DD1CCD/letterboxd:/letterboxd
     ports:
       - 8096:8096
       - 8920:8920
@@ -120,6 +89,7 @@ services:
   prowlarr:
     container_name: prowlarr
     image: lscr.io/linuxserver/prowlarr:latest
+    network_mode: host
     environment:
       - PUID=1000
       - PGID=1000
@@ -127,10 +97,9 @@ services:
     volumes:
       - /home/apoorv/hosted/prowlarr/config:/config
       - /home/apoorv/hosted/prowlarr/Custom:/config/Definitions/Custom
-    restart: unless-stopped
     depends_on:
-      - gluetun
-    network_mode: "service:gluetun"
+      - transmission-openvpn
+    restart: unless-stopped
 
   filebrowser:
     image: filebrowser/filebrowser:latest
@@ -141,8 +110,8 @@ services:
       - TZ=Etc/UTC
     volumes:
       - /home/apoorv/hosted/filebrowser:/config
-      - /media/apoorv/561DA19B02F15670/Downloads:/srv/downloads
-      - /media/apoorv/561DA19B02F15670/letterboxd:/srv/letterboxd
+      - /mnt/1BB69A1109DD1CCD/Downloads:/srv/downloads
+      - /mnt/1BB69A1109DD1CCD/letterboxd:/srv/letterboxd
       - /home/apoorv/hosted:/srv/config
     ports:
       - 8001:80
