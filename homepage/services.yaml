@@ -1,0 +1,86 @@
+---
+- Media Management:
+    - Prowlarr:
+        icon: prowlarr.png
+        href: http://{{HOMEPAGE_VAR_HOST}}:9696
+        description: Indexer Management
+        server: my-docker
+        container: prowlarr
+        widget:
+          type: prowlarr
+          url: http://localhost:9696
+          key: {{HOMEPAGE_VAR_PROWLARR_KEY}}
+
+- Torrents:
+    - qBittorrent:
+        icon: qbittorrent.png
+        href: http://{{HOMEPAGE_VAR_HOST}}:8080
+        description: Torrent Client
+        server: my-docker
+        container: qbittorrent
+        widget:
+          type: qbittorrent
+          url: http://localhost:8080
+          username: {{HOMEPAGE_VAR_QBITTORRENT_USERNAME}}
+          password: {{HOMEPAGE_VAR_QBITTORRENT_PASSWORD}}
+
+    - Transmission OpenVPN:
+        icon: transmission.png
+        href: http://{{HOMEPAGE_VAR_HOST}}:9091
+        description: VPN Client (ProtonVPN)
+        server: my-docker
+        container: transmission-openvpn
+
+- Media:
+    - Jellyfin:
+        icon: jellyfin.png
+        href: http://{{HOMEPAGE_VAR_HOST}}:8096
+        description: Media Server
+        server: my-docker
+        container: jellyfin
+        widget:
+          type: jellyfin
+          url: http://localhost:8096
+          key: {{HOMEPAGE_VAR_JELLYFIN_KEY}}
+
+- Utilities:
+    - File Browser:
+        icon: filebrowser.png
+        href: http://{{HOMEPAGE_VAR_HOST}}:8001
+        description: File Management
+        server: my-docker
+        container: filebrowser
+
+    - Portainer:
+        icon: portainer.png
+        href: http://{{HOMEPAGE_VAR_HOST}}:9000
+        description: Docker Management
+        server: my-docker
+        container: portainer
+
+- Docker Monitoring:
+    - Docker Proxy:
+        icon: docker.png
+        href: http://{{HOMEPAGE_VAR_HOST}}:2375
+        description: Docker Socket Proxy
+        server: my-docker
+        container: dockerproxy
+
+    - Port Sync:
+        icon: docker.png
+        description: ProtonVPN Port Sync Service
+        server: my-docker
+        container: protonvpn-qbittorrent-port-sync
+
+    - Homepage:
+        icon: homepage.png
+        href: http://{{HOMEPAGE_VAR_HOST}}:3000
+        description: This Dashboard
+        server: my-docker
+        container: homepage
+
+- Pi Prime (192.168.68.61):
+    - Overview:
+        icon: linux.png
+        href: https://192.168.68.61:9090/system/services#/hue-harmonize.service?name=harm
+        description: Pi cockpit 

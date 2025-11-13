@@ -1,0 +1,35 @@
+---
+title: Home Server
+favicon: https://cdn-icons-png.flaticon.com/512/2617/2617812.png
+
+theme: dark
+color: slate
+
+layout:
+  - Media Management:
+      style: row
+      columns: 3
+  - Torrents:
+      style: row
+      columns: 2
+  - Media:
+      style: row
+      columns: 2
+  - Utilities:
+      style: row
+      columns: 3
+  - Docker Monitoring:
+      style: row
+      columns: 4
+  - Remote Server (192.168.68.61):
+      style: row
+      columns: 2
+
+providers:
+  openweathermap: openweathermapapikey
+  weatherapi: weatherapiapikey
+
+headerStyle: boxed
+statusStyle: dot
+showStats: true
+
