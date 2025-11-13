@@ -3,6 +3,7 @@ volumes:
   ollama-data:
   open-webui-data:
   llama-models:
+  portainer-data:
 
 services:
   transmission-openvpn:
@@ -20,6 +21,7 @@ services:
       - OPENVPN_CONFIG=sg.protonvpn.tcp
       - LOCAL_NETWORK=192.168.1.0/24,100.64.0.0/10
       - TRANSMISSION_WEB_UI=flood
+      - TRANSMISSION_PEER_PORT=6881
       - PUID=1000
       - PGID=1000
     volumes:
@@ -133,6 +135,7 @@ services:
   homepage:
     image: ghcr.io/gethomepage/homepage:latest
     container_name: homepage
+    network_mode: host
     environment:
       - PUID=1000
       - PGID=1000
@@ -146,8 +149,6 @@ services:
       - HOMEPAGE_VAR_QBITTORRENT_PASSWORD=adminadmin
     volumes:
       - /home/apoorv/hosted/homepage:/app/config
-    ports:
-      - 3000:3000
     restart: unless-stopped
     depends_on:
       - dockerproxy
@@ -201,4 +202,15 @@ services:
       - llama-models:/models
     ports:
       - 8003:8080
+    restart: unless-stopped
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    ports:
+      - 9000:9000
+      - 9443:9443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
     restart: unless-stopped

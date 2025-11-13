@@ -98,6 +98,23 @@ def set_qbittorrent_port(session, port):
         print(f"✗ Error setting port: {e}")
         return False
 
+def fix_transmission_port():
+    """Keep Transmission on port 6881 so it doesn't steal ProtonVPN's forwarded port"""
+    try:
+        import json
+        # Use Transmission RPC to set port to 6881
+        result = subprocess.run(
+            ['docker', 'exec', 'transmission-openvpn', 'transmission-remote', 
+             '127.0.0.1:9091', '--port', '6881'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        return result.returncode == 0
+    except Exception as e:
+        print(f"⚠️  Warning: Could not fix Transmission port: {e}")
+        return False
+
 def main():
     print("=" * 60)
     print("ProtonVPN → qBittorrent Port Sync Service")
@@ -146,7 +163,13 @@ def main():
             # Update port
             print(f"📝 Updating qBittorrent port to {forwarded_port}...")
             if set_qbittorrent_port(session, forwarded_port):
-                print(f"✅ Successfully updated port to {forwarded_port}")
+                print(f"✅ Successfully updated qBittorrent port to {forwarded_port}")
+                
+                # Fix Transmission port back to 6881
+                print(f"🔧 Setting Transmission port back to 6881...")
+                if fix_transmission_port():
+                    print(f"✅ Transmission port reset to 6881")
+                
                 last_port = forwarded_port
             else:
                 print(f"❌ Failed to update port")
