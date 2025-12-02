@@ -43,6 +43,13 @@
           url: http://localhost:8096
           key: {{HOMEPAGE_VAR_JELLYFIN_KEY}}
 
+    - Jellyfin Vue:
+        icon: jellyfin.png
+        href: http://{{HOMEPAGE_VAR_HOST}}:3001
+        description: Modern Jellyfin Web Client
+        server: my-docker
+        container: jellyfin-vue
+
 - Utilities:
     - File Browser:
         icon: filebrowser.png

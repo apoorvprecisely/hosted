@@ -78,6 +78,11 @@ services:
       - PGID=1000
       - TZ=Etc/UTC
       - JELLYFIN_PublishedServerUrl=http://192.168.1.14:8096
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "44"   # video group
+      - "991"  # render group
     volumes:
       - /home/apoorv/hosted/jellyfin/config:/config
       - /mnt/1BB69A1109DD1CCD/Downloads:/downloads
@@ -88,6 +93,18 @@ services:
       - 7359:7359/udp
       - 1900:1900/udp
     restart: unless-stopped
+
+  jellyfin-vue:
+    image: ghcr.io/jellyfin/jellyfin-vue:unstable
+    container_name: jellyfin-vue
+    ports:
+      - 3001:80
+    environment:
+      - DEFAULT_SERVERS=http://192.168.1.14:8096
+    restart: unless-stopped
+    depends_on:
+      - jellyfin
+
   prowlarr:
     container_name: prowlarr
     image: lscr.io/linuxserver/prowlarr:latest
